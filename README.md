@@ -101,10 +101,43 @@ kalibrierte OU-Prozess per Euler-Maruyama mit konstantem `dt` simuliert
 (`src/simulation.py`, `simulate_ou_paths()`) — die irregulär-dt-Behandlung
 betrifft nur die Parameterschätzung, für die Simulation selbst genügt ein
 einheitliches Zeitraster. Eine Monte-Carlo-Bewertung eines
-Bachelier-Style-Calls auf den Preisunterschied sowie eine bidirektionale
-Bewertung der zugrundeliegenden Transportkapazität als Optionsstrip
-(empirisch und simulationsbasiert, mit identischer Diskontierung) sind
-ebenfalls implementiert.
+Bachelier-Style-Calls auf den Preisunterschied ist ebenfalls implementiert.
+
+**Transportkapazitäts-Bewertung als Optionsstrip.** Eine Transportkapazität
+zwischen zwei Marktgebieten lässt sich als Strip täglicher Call-Optionen auf
+den Preisunterschied auffassen: An jedem Liefertag wird die Kapazität in der
+jeweils profitablen Richtung genutzt, sofern der Preisunterschied die
+Transportkosten `K` übersteigt. Für eine Kapazität von 1 MWh/Tag über eine
+Vertragslaufzeit von `T` Liefertagen ist der Wert die Summe der erwarteten,
+diskontierten täglichen Payoffs beider Richtungen:
+
+```
+V₀ = E[ Σ_{t=1}^{T} e^(-rt/365) · ( max(S_t^AB − K, 0) + max(S_t^BA − K, 0) ) ]
+```
+
+mit `S_t^BA = −S_t^AB`. Da `K > 0`, kann an einem Tag höchstens eine der
+beiden Richtungen profitabel sein. Der Erwartungswert wird unter dem
+realen (physischen) Maß approximiert, unter dem auch die OU-Parameter
+geschätzt wurden — keine risikoneutrale, arbitragefreie Bewertung; die
+Werte sind Schätzungen des erwarteten Ertragspotenzials.
+
+`src/simulation.py` implementiert zwei Bewertungswege:
+
+- **`ou_simulated_capacity_value()`** — modellbasiert: `M` zukünftige
+  Preispfade werden aus dem kalibrierten OU-Prozess simuliert, jeder
+  tägliche Payoff einzeln mit `exp(-rt/365)` diskontiert, der Kapazitätswert
+  ergibt sich als Stichprobenmittel über alle Pfade.
+- **`empirical_capacity_value()`** — empirischer Referenzwert: der
+  durchschnittliche tägliche Payoff der tatsächlich beobachteten
+  Preisunterschiede, auf 365 Liefertage hochgerechnet — bewusst
+  **undiskontiert** (kein realisierter Gewinn, sondern reine
+  Referenzgröße für die Größenordnung).
+
+Beide Werte sind nicht direkt methodisch identisch (der eine diskontiert
+zukünftige unsichere Zahlungen, der andere nicht) — der Vergleich zeigt
+daher nicht mehr als die Größenordnung, in der sich das modellbasierte
+Ergebnis gegenüber dem historisch beobachteten Ertragspotenzial bewegt.
+Ergebnisse: Abschnitt 6.
 
 ## 5. Backtesting Framework
 
@@ -175,6 +208,32 @@ gegen dasselbe Testfenster ausgewertet:
 | TTF_VTP | **0.455** | 0.656 |
 | TTF_CZ | 0.828 | **0.361** |
 
+**Transportkapazitäts-Bewertung** (1 MWh/Tag, 365 Liefertage, Transportkosten
+K=0,6 €/MWh beide Richtungen, Zinssatz r=3% p.a., M=1.000 simulierte Pfade;
+Methodik siehe Abschnitt 4.4). "Periode 1"/"Periode 2" entsprechen den
+Regime-1-/Regime-2-Kalibrierungsfenstern aus Abschnitt 5, "Gesamtperiode" der
+kompletten verfügbaren Historie 2017-12-30–2024-04-18:
+
+| Preisunterschied | Periode | Empirisch (€) | OU-Modell (€) |
+|---|---|---|---|
+| TTF_THE | Periode 1 | 10.88 | 14.52 |
+| TTF_THE | Periode 2 | 98.01 | 150.67 |
+| TTF_THE | Gesamtperiode | **33.00** | **51.24** |
+| TTF_PEG | Periode 1 | 31.24 | 93.03 |
+| TTF_PEG | Periode 2 | 5550.25 | 7962.77 |
+| TTF_PEG | Gesamtperiode | **1518.08** | **3993.99** |
+| TTF_ZTP | Periode 1 | 12.90 | 42.40 |
+| TTF_ZTP | Periode 2 | 4216.09 | 7029.63 |
+| TTF_ZTP | Gesamtperiode | **1115.69** | **3492.55** |
+| TTF_VTP | Periode 1 | 132.24 | 144.07 |
+| TTF_VTP | Periode 2 | 685.24 | 759.23 |
+| TTF_VTP | Gesamtperiode | **275.46** | **361.72** |
+| TTF_CZ | Periode 1 | 80.10 | 125.06 |
+| TTF_CZ | Periode 2 | 563.43 | 748.39 |
+| TTF_CZ | Gesamtperiode | **288.43** | **411.79** |
+
+![Transportkapazitäts-Bewertung](results/figures/06_capacity_valuation.png)
+
 ## 7. Key Findings
 
 - **Die Ljung-Box-Unabhängigkeitsannahme wird für alle fünf
@@ -197,6 +256,18 @@ gegen dasselbe Testfenster ausgewertet:
   Form von Leakage, wenn sie als allgemeine Modellwahl-Regel behandelt
   würde — dieser Befund wird daher als empirische Beobachtung berichtet,
   nicht als neue Kalibrierungsregel verallgemeinert.
+- **Die OU-modellbasierte Kapazitätsbewertung liegt für alle fünf
+  Preisunterschiede über dem empirischen Referenzwert** (Faktor 1,3 bis
+  ~2,7, am stärksten bei TTF_PEG und TTF_ZTP — den beiden Preisunterschieden
+  mit der stärksten Rechtsschiefe in den Rohdaten). Das ist konsistent mit
+  den verletzten Verteilungsannahmen aus Punkt 6: Ein Gauß'scher OU-Prozess
+  erzeugt tendenziell mehr/stärkere Ausreißer-Pfade als in den historischen
+  Daten tatsächlich beobachtet wurden, und da der Optionspayoff `max(S-K,0)`
+  gerade von diesen Ausreißern lebt, überträgt sich diese Diskrepanz direkt
+  auf den Kapazitätswert. Die beiden Werte sind zudem nicht strikt
+  vergleichbar (der empirische Wert diskontiert nicht, der modellbasierte
+  schon, siehe Abschnitt 4.4) — der Vergleich zeigt daher eine
+  Größenordnung, keine exakte Punktschätzung.
 - Die Halbwertszeiten variieren stark zwischen den Preisunterschieden
   (rund 1 Tag bei TTF_CZ und TTF_THE bis rund 24 Tage bei TTF_PEG) — ein
   Hinweis darauf, dass die Marktkopplung zwischen den jeweiligen
@@ -220,8 +291,9 @@ gas-price-difference-ou/
 │   ├── backtesting.py          # Fit + Bewertung auf einem Kalibrierungs-/Testpaar
 │   └── evaluation.py           # Zusammenfassende Ergebnistabellen über alle Preisunterschiede
 ├── scripts/
-│   ├── generate_eda.py         # Explorative Datenanalyse (Verteilungen, Korrelation, ACF)
-│   └── generate_charts.py      # Die fünf Kernabbildungen + Backtest-Ergebnistabelle
+│   ├── generate_eda.py                  # Explorative Datenanalyse (Verteilungen, Korrelation, ACF)
+│   ├── generate_charts.py               # Die fünf Kernabbildungen + Backtest-Ergebnistabelle
+│   └── generate_capacity_valuation.py   # Transportkapazitäts-Bewertung (empirisch vs. OU-Modell)
 ├── results/
 │   ├── figures/                # Erzeugte Abbildungen
 │   └── tables/                 # Erzeugte Ergebnistabellen (CSV)
@@ -258,9 +330,10 @@ summary = summarize_backtest(diffs)
 ## 10. Reproducibility
 
 ```bash
-python scripts/generate_eda.py       # EDA-Abbildungen + Konsolen-Output
-python scripts/generate_charts.py    # Kernabbildungen + Backtest-Ergebnistabelle
-pytest tests/                        # Unit-Tests
+python scripts/generate_eda.py                  # EDA-Abbildungen + Konsolen-Output
+python scripts/generate_charts.py               # Kernabbildungen + Backtest-Ergebnistabelle
+python scripts/generate_capacity_valuation.py   # Transportkapazitäts-Bewertung
+pytest tests/                                   # Unit-Tests
 ```
 
 Alle Zufallskomponenten (Monte-Carlo-Simulation, Optionsbewertung) sind
@@ -283,3 +356,10 @@ lokalen Pfade — alle Pfade sind relativ zum Repository-Root.
   und TTF_ZTP korrelieren stark (~0,95), eine korrelierte
   Multi-Prozess-Simulation wäre eine mögliche Erweiterung, ist aber nicht
   Teil dieses Projekts.
+- Die Transportkapazitäts-Bewertung vergleicht einen undiskontierten
+  empirischen Referenzwert mit einem diskontierten modellbasierten Wert
+  (Begründung: Abschnitt 4.4) — der Vergleich ist als Größenordnung zu
+  lesen, nicht als exakte Punktschätzung derselben Größe. Die
+  Periodengrenzen ("Periode 1"/"Periode 2") folgen der in diesem Projekt
+  etablierten Regime-Definition (Abschnitt 5); die Bewertung ist real
+  (physisch), nicht risikoneutral kalibriert.

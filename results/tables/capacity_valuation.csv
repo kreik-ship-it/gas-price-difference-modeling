@@ -1,0 +1,16 @@
+Preisunterschied,Periode,Empirisch_EUR,OU_Modell_EUR
+TTF_THE,Periode 1 (Regime 1),10.88,14.52
+TTF_THE,Periode 2 (Regime 2),98.01,150.67
+TTF_THE,Gesamtperiode,33.0,51.24
+TTF_PEG,Periode 1 (Regime 1),31.24,93.03
+TTF_PEG,Periode 2 (Regime 2),5550.25,7962.77
+TTF_PEG,Gesamtperiode,1518.08,3993.99
+TTF_ZTP,Periode 1 (Regime 1),12.9,42.4
+TTF_ZTP,Periode 2 (Regime 2),4216.09,7029.63
+TTF_ZTP,Gesamtperiode,1115.69,3492.55
+TTF_VTP,Periode 1 (Regime 1),132.24,144.07
+TTF_VTP,Periode 2 (Regime 2),685.24,759.23
+TTF_VTP,Gesamtperiode,275.46,361.72
+TTF_CZ,Periode 1 (Regime 1),80.1,125.06
+TTF_CZ,Periode 2 (Regime 2),563.43,748.39
+TTF_CZ,Gesamtperiode,288.43,411.79

@@ -98,39 +98,46 @@ def validate_against_analytical_moments(params: OUParams, X0: float, T_years: fl
 # ----------------------------------------------------------------
 
 
-def empirical_capacity_value(price_differences: pd.Series, K: float, r: float) -> dict:
-    """Empirische Methode: historische Preisunterschiede als Stichprobe
-    fuer taegliche Optionspayoffs, MIT Diskontierung ueber den
-    beobachteten Zeitraum. Bidirektional A->B / B->A."""
-    n_days = len(price_differences)
-    days = np.arange(1, n_days + 1)
-    discount_factors = np.exp(-r * days / 365)
+def empirical_capacity_value(price_differences: pd.Series, K: float) -> dict:
+    """Empirischer Referenzwert auf Grundlage der tatsaechlich beobachteten
+    Preisunterschiede: kein finanzmathematischer Optionswert, sondern das
+    Ertragspotenzial, das sich bei direkter Nutzung der historisch
+    beobachteten Preisunterschiede ergeben haette.
 
-    payoff_ab = np.maximum(price_differences.to_numpy() - K, 0)
-    payoff_ba = np.maximum(-price_differences.to_numpy() - K, 0)
+    Fuer jede Richtung wird der durchschnittliche taegliche Payoff
+    max(S_t - K, 0) ueber die Beobachtungsperiode gebildet und auf 365
+    Liefertage hochgerechnet -- OHNE Diskontierung (bewusste
+    Vereinfachung: der Wert dient als historische Referenzgroesse, nicht
+    als realisierter Gewinn oder arbitragefreier Marktpreis).
+    """
+    x = price_differences.to_numpy()
+    payoff_ab = np.maximum(x - K, 0)
+    payoff_ba = np.maximum(-x - K, 0)
 
-    value_ab = float(np.sum(payoff_ab * discount_factors))
-    value_ba = float(np.sum(payoff_ba * discount_factors))
+    value_ab = 365.0 * float(np.mean(payoff_ab))
+    value_ba = 365.0 * float(np.mean(payoff_ba))
 
-    # Auf ein Jahr (365 Tage) normiert, damit unterschiedlich lange
-    # Beobachtungsfenster vergleichbar bleiben.
-    scale = 365.0 / n_days
     return {
-        "annual_ab": value_ab * scale,
-        "annual_ba": value_ba * scale,
-        "annual_total": (value_ab + value_ba) * scale,
-        "n_days": n_days,
+        "annual_ab": value_ab,
+        "annual_ba": value_ba,
+        "annual_total": value_ab + value_ba,
+        "n_days": len(x),
     }
 
 
 def ou_simulated_capacity_value(
     params: OUParams, X0: float, K: float, r: float, n_simulations: int = 1000, T_days: int = 365, seed: int | None = 42
 ) -> dict:
-    """OU-simulationsbasierte Methode: dieselbe bidirektionale
-    Kapazitaetsbewertung, aber ueber simulierte Pfade statt historischer
-    Beobachtungen. Beide Methoden (empirisch und simulationsbasiert)
-    diskontieren identisch -- jeder Zahlungstag einzeln mit
-    exp(-r * t/365) -- und sind damit direkt vergleichbar."""
+    """Modellbasierter Kapazitaetswert per Monte-Carlo-Simulation: M
+    zukuenftige Preispfade werden ueber T Liefertage aus dem kalibrierten
+    OU-Prozess simuliert, der taegliche Payoff beider Richtungen wird
+    einzeln mit exp(-r * t/365) diskontiert, der Kapazitaetswert ergibt
+    sich als Stichprobenmittel ueber alle simulierten Pfade (vgl.
+    Monte-Carlo-Schaetzer in der zugrundeliegenden Bewertungsmethodik).
+    Anders als der empirische Referenzwert WIRD hier diskontiert, da es
+    sich um eine echte Bewertung zukuenftiger, unsicherer Zahlungen
+    handelt -- die beiden Werte sind daher Referenzgroesse und Modellwert,
+    keine methodisch identischen Groessen."""
     dt = 1.0 / 365
     paths = simulate_ou_paths(params, X0, n_steps=T_days, n_simulations=n_simulations, dt_years=dt, seed=seed)
     # paths[0] ist X0; Tage 1..T_days sind paths[1:]

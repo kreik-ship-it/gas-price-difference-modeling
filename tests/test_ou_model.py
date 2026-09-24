@@ -15,7 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from ou_model import OUModel, OUParams, _year_fraction, estimate_ou_params
-from simulation import simulate_ou_paths
+from simulation import simulate_ou_paths, empirical_capacity_value, ou_simulated_capacity_value
 
 
 def _make_synthetic_ou_series(alpha=5.0, mu=0.0, sigma=1.0, n=1000, dt=1 / 365, seed=42):
@@ -119,3 +119,42 @@ class TestSimulation:
         paths = simulate_ou_paths(params, X0=0.0, n_steps=2000, n_simulations=500, dt_years=1 / 365, seed=3)
         late_mean = paths[-1, :].mean()
         assert late_mean == pytest.approx(params.mu, abs=0.5)
+
+
+class TestCapacityValuation:
+    def test_empirical_value_is_undiscounted_average_times_365(self):
+        # Konstanter Preisunterschied von 1.0 bei K=0.6 -> taeglicher
+        # Payoff A->B ist konstant 0.4, B->A konstant 0 (da -1.0-0.6<0).
+        series = pd.Series([1.0] * 10)
+        result = empirical_capacity_value(series, K=0.6)
+        assert result["annual_ab"] == pytest.approx(365 * 0.4)
+        assert result["annual_ba"] == pytest.approx(0.0)
+
+    def test_empirical_value_never_negative(self):
+        series = pd.Series([-2.0, -1.0, 0.0, 1.0, 2.0])
+        result = empirical_capacity_value(series, K=0.6)
+        assert result["annual_ab"] >= 0
+        assert result["annual_ba"] >= 0
+
+    def test_ou_simulated_value_non_negative_and_finite(self):
+        params = OUParams(alpha=50.0, mu=0.0, sigma=1.0)
+        result = ou_simulated_capacity_value(
+            params, X0=0.0, K=0.6, r=0.03, n_simulations=200, T_days=50, seed=1
+        )
+        assert result["annual_total"] >= 0
+        assert np.isfinite(result["annual_total"])
+
+    def test_ou_simulated_value_reproducible_with_seed(self):
+        params = OUParams(alpha=50.0, mu=0.0, sigma=1.0)
+        r1 = ou_simulated_capacity_value(params, X0=0.0, K=0.6, r=0.03, n_simulations=200, T_days=50, seed=1)
+        r2 = ou_simulated_capacity_value(params, X0=0.0, K=0.6, r=0.03, n_simulations=200, T_days=50, seed=1)
+        assert r1["annual_total"] == pytest.approx(r2["annual_total"])
+
+    def test_higher_volatility_increases_capacity_value(self):
+        # Hoehere Volatilitaet -> mehr Tage, an denen der Preisunterschied
+        # die Transportkosten uebersteigt -> hoeherer Optionswert.
+        low_vol = OUParams(alpha=20.0, mu=0.0, sigma=0.2)
+        high_vol = OUParams(alpha=20.0, mu=0.0, sigma=2.0)
+        v_low = ou_simulated_capacity_value(low_vol, X0=0.0, K=0.6, r=0.03, n_simulations=500, T_days=200, seed=5)
+        v_high = ou_simulated_capacity_value(high_vol, X0=0.0, K=0.6, r=0.03, n_simulations=500, T_days=200, seed=5)
+        assert v_high["annual_total"] > v_low["annual_total"]
