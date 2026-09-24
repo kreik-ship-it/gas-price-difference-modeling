@@ -179,6 +179,21 @@ Look-Ahead-Bias-Risiko durch eine dritte, vermischte Stufe.
 
 ## 6. Results
 
+**Warum trotzdem ein parametrisches Modell, wenn die Annahmen (unten)
+teils verletzt sind?** Drei Gründe: (1) Das OU-Modell liefert drei
+ökonomisch interpretierbare Parameter (Mean-Reversion-Geschwindigkeit,
+langfristiges Niveau, Halbwertszeit) statt einer Black-Box-Vorhersage —
+relevant für die Kommunikation mit Fachpublikum. (2) Die geschlossene
+Transitionsdichte erlaubt exakte Maximum-Likelihood-Schätzung und schnelle
+Simulation, praktisch nutzbar für Options- und Kapazitätsbewertung. (3) Die
+verletzten Annahmen (Ljung-Box, teils Jarque-Bera) betreffen in erster
+Linie die *Unsicherheitsquantifizierung* — Konfidenzintervalle und
+Signifikanztests — nicht zwingend die Punktschätzung selbst; RMSE/MAE
+bleiben aussagekräftig, auch wenn z. B. die 95%-Prognoseintervalle in
+Abbildung 4 zu eng oder falsch kalibriert sein können. Das Modell wird
+deshalb bewusst mit offen ausgewiesener Einschränkung verwendet, nicht
+trotz eines übersehenen Problems.
+
 ![OU-Kalibrierung auf Regime 2](results/figures/03_ou_calibration.png)
 
 ![Out-of-Sample-Prognose](results/figures/04_oos_forecast.png)
