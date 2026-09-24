@@ -55,9 +55,9 @@ bedeutet, dass TTF teurer notiert als der Ziel-Hub.
 Modelliert wird jeder Preisunterschied als kontinuierlicher
 Mean-Reversion-Prozess:
 
-```
-dX_t = α(θ − X_t)dt + σ dW_t
-```
+$$
+dX_t = \alpha(\theta - X_t)\,dt + \sigma\,dW_t
+$$
 
 - **α** — Mean-Reversion-Geschwindigkeit: wie schnell der Prozess zu
   seinem langfristigen Niveau zurückkehrt.
@@ -111,11 +111,11 @@ Transportkosten `K` übersteigt. Für eine Kapazität von 1 MWh/Tag über eine
 Vertragslaufzeit von `T` Liefertagen ist der Wert die Summe der erwarteten,
 diskontierten täglichen Payoffs beider Richtungen:
 
-```
-V₀ = E[ Σ_{t=1}^{T} e^(-rt/365) · ( max(S_t^AB − K, 0) + max(S_t^BA − K, 0) ) ]
-```
+$$
+V_0 = \mathbb{E}\left[\sum_{t=1}^{T} e^{-rt/365}\left(\max(S_t^{A,B} - K,\ 0) + \max(S_t^{B,A} - K,\ 0)\right)\right]
+$$
 
-mit `S_t^BA = −S_t^AB`. Da `K > 0`, kann an einem Tag höchstens eine der
+mit $S_t^{B,A} = -S_t^{A,B}$. Da $K > 0$, kann an einem Tag höchstens eine der
 beiden Richtungen profitabel sein. Der Erwartungswert wird unter dem
 realen (physischen) Maß approximiert, unter dem auch die OU-Parameter
 geschätzt wurden — keine risikoneutrale, arbitragefreie Bewertung; die
