@@ -1,0 +1,11 @@
+# Kernabhaengigkeiten fuer src/.
+numpy>=1.26
+pandas>=2.0
+scipy>=1.11
+openpyxl>=3.1   # zum Lesen von Historie_EGSI.xlsx (pd.read_excel)
+
+# Nur fuer scripts/ (Abbildungen erzeugen):
+matplotlib>=3.8
+
+# Nur fuer Tests:
+pytest>=7.4
